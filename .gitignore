@@ -15,3 +15,5 @@ scire_data/
 *.swo
 
 .DS_Store
+
+.env
