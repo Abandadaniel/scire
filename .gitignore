@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv/
+venv/
+
+.docker/
+ollama_data/
+scire_data/
+
+.vscode/
+.idea/
+*.swp
+*.swo
+
+.DS_Store

@@ -1,0 +1,94 @@
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: scire-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_KEEP_ALIVE=24h
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    networks:
+      - scire-network
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4'
+        reservations:
+          memory: 2G
+          cpus: '1'
+
+  model-initializer:
+    image: ollama/ollama:latest
+    container_name: scire-model-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=ollama:11434
+    command: ["pull", "llama3.2:3b"]
+    networks:
+      - scire-network
+    restart: "no"
+
+  scire:
+    build: .
+    container_name: scire-assistant
+    ports:
+      - "8501:8501"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - STREAMLIT_SERVER_MAX_UPLOAD_SIZE=10
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      - NEWSAPI_KEY=${NEWSAPI_KEY}
+    depends_on:
+      model-initializer:
+        condition: service_completed_successfully
+    volumes:
+      - ./:/app
+      - scire_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - scire-network
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  ollama_data:
+    driver: local
+  scire_data:
+    driver: local
+
+networks:
+  scire-network:
+    driver: bridge
+    name: scire-network
